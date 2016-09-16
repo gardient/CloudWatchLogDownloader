@@ -56,7 +56,37 @@ namespace CloudWatchLogDownloader
 
         private static LogStream GetLogStream(LogGroup logGroup, string logStream = null)
         {
-            client.DescribeLogStreams(new DescribeLogStreamsRequest(""));
+            List<LogStream> allStreams = new List<LogStream>();
+            DescribeLogStreamsResponse lsResponse = null;
+            do
+            {
+                lsResponse = client.DescribeLogStreams(new DescribeLogStreamsRequest
+                {
+                    NextToken = (lsResponse != null ? lsResponse.NextToken : null)
+                });
+                allStreams.AddRange(lsResponse.LogStreams);
+            } while (!string.IsNullOrWhiteSpace(lsResponse.NextToken));
+
+            if (string.IsNullOrWhiteSpace(logStream) || logStream[logStream.Length - 1] == '*')
+            {
+                if (!string.IsNullOrWhiteSpace(logStream))
+                {
+                    logStream = logStream.Substring(0, logStream.Length - 1);
+                    allStreams = allStreams.Where(x => x.LogStreamName.StartsWith(logStream)).ToList();
+                }
+
+                for (int i = 0, len = allStreams.Count; i < len; ++i)
+                    Console.WriteLine(i + ") " + allStreams[i].LogStreamName);
+                int num = ReadIntBetween("Choose log stream: ", 0, allStreams.Count - 1);
+
+                return allStreams[num];
+            }
+
+            var ls = allStreams.FirstOrDefault(x => x.LogStreamName == logStream);
+            if (ls == null)
+                throw new Exception("The log stream '" + logGroup + "' does not exist.");
+
+            return ls;
         }
 
         private static void WriteLogToFile(LogGroup logGroup, LogStream logStream, string outputFilePath = null)
