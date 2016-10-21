@@ -4,6 +4,7 @@ using CloudWatchLogDownloader.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace CloudWatchLogDownloader
 {
@@ -44,6 +45,8 @@ namespace CloudWatchLogDownloader
                     Console.WriteLine(i + ") " + allGroups[i].LogGroupName);
                 int num = ReadIntBetween("Choose log group: ", 0, allGroups.Count - 1);
 
+                Console.Clear();
+                Console.WriteLine("You choose LogGroup: " + allGroups[num].LogGroupName);
                 return allGroups[num];
             }
 
@@ -51,6 +54,7 @@ namespace CloudWatchLogDownloader
             if (lg == null)
                 throw new Exception("The log group '" + logGroup + "' does not exist.");
 
+            Console.WriteLine("You choose LogGroup: " + lg.LogGroupName);
             return lg;
         }
 
@@ -62,7 +66,8 @@ namespace CloudWatchLogDownloader
             {
                 lsResponse = client.DescribeLogStreams(new DescribeLogStreamsRequest
                 {
-                    NextToken = (lsResponse != null ? lsResponse.NextToken : null)
+                    NextToken = (lsResponse != null ? lsResponse.NextToken : null),
+                    LogGroupName = logGroup.LogGroupName
                 });
                 allStreams.AddRange(lsResponse.LogStreams);
             } while (!string.IsNullOrWhiteSpace(lsResponse.NextToken));
@@ -75,23 +80,53 @@ namespace CloudWatchLogDownloader
                     allStreams = allStreams.Where(x => x.LogStreamName.StartsWith(logStream)).ToList();
                 }
 
+                allStreams = allStreams.OrderBy(x => x.CreationTime).ToList();
+
                 for (int i = 0, len = allStreams.Count; i < len; ++i)
                     Console.WriteLine(i + ") " + allStreams[i].LogStreamName);
                 int num = ReadIntBetween("Choose log stream: ", 0, allStreams.Count - 1);
 
+                Console.Clear();
+                Console.WriteLine("You choose LogGroup: " + logGroup.LogGroupName + Environment.NewLine + "You choose LogStream: " + allStreams[num].LogStreamName);
                 return allStreams[num];
             }
 
             var ls = allStreams.FirstOrDefault(x => x.LogStreamName == logStream);
             if (ls == null)
-                throw new Exception("The log stream '" + logGroup + "' does not exist.");
+                throw new Exception("The log stream '" + logStream + "' does not exist.");
 
+            Console.WriteLine("You choose LogStream: " + ls.LogStreamName);
             return ls;
         }
 
         private static void WriteLogToFile(LogGroup logGroup, LogStream logStream, string outputFilePath = null)
         {
-            client.GetLogEvents(new GetLogEventsRequest("", ""));
+            Console.WriteLine("Choose Output file [logs/" + logStream.LogStreamName + ".log]: ");
+            var output = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(output))
+                output = "logs/" + logStream.LogStreamName + ".log";
+            if (!Directory.GetParent(output).Exists)
+                Directory.CreateDirectory(Directory.GetParent(output).FullName);
+
+            using (StreamWriter sw = new StreamWriter(output))
+            {
+                GetLogEventsResponse leResponse = null;
+                do
+                {
+                    leResponse = client.GetLogEvents(new GetLogEventsRequest
+                    {
+                        LogGroupName = logGroup.LogGroupName,
+                        LogStreamName = logStream.LogStreamName,
+                        StartFromHead = true,
+                        NextToken = (leResponse != null ? leResponse.NextForwardToken : null)
+                    });
+
+                    foreach (var ev in leResponse.Events)
+                        sw.WriteLine(ev.Message);
+
+                    sw.Flush();
+                } while (leResponse.NextForwardToken != null && leResponse.Events.Any());
+            }
         }
 
         private static int ReadIntBetween(string message, int min, int max)
