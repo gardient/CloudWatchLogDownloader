@@ -17,6 +17,9 @@ namespace CloudWatchLogDownloader.Models
         [ValueOption(2)]
         public string OutputFilePath { get; set; }
 
+        [Option('l', "liveStream", HelpText="Keep pulling logs until Ctrl+C is applied")]
+        public bool LiveStream { get; set; }
+
         [ParserState]
         public IParserState ParserState { get; set; }
 

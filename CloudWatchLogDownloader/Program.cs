@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using Amazon;
 
 namespace CloudWatchLogDownloader
 {
@@ -19,7 +20,7 @@ namespace CloudWatchLogDownloader
                 client = new AmazonCloudWatchLogsClient();
                 var logGroup = GetLogGroup(opt.LogGroup);
                 var logStream = GetLogStream(logGroup, opt.LogStream);
-                WriteLogToFile(logGroup, logStream, opt.OutputFilePath);
+                WriteLogToFile(logGroup, logStream, opt.LiveStream, opt.OutputFilePath);
             }
         }
 
@@ -80,7 +81,7 @@ namespace CloudWatchLogDownloader
                     allStreams = allStreams.Where(x => x.LogStreamName.StartsWith(logStream)).ToList();
                 }
 
-                allStreams = allStreams.OrderBy(x => x.CreationTime).ToList();
+                allStreams = allStreams.OrderByDescending(x => x.CreationTime).ToList();
 
                 for (int i = 0, len = allStreams.Count; i < len; ++i)
                     Console.WriteLine(i + ") " + allStreams[i].LogStreamName);
@@ -99,7 +100,7 @@ namespace CloudWatchLogDownloader
             return ls;
         }
 
-        private static void WriteLogToFile(LogGroup logGroup, LogStream logStream, string outputFilePath = null)
+        private static void WriteLogToFile(LogGroup logGroup, LogStream logStream, bool liveStream, string outputFilePath = null)
         {
             Console.WriteLine("Choose Output file [logs/" + logStream.LogStreamName + ".log]: ");
             var output = Console.ReadLine();
@@ -107,6 +108,10 @@ namespace CloudWatchLogDownloader
                 output = "logs/" + logStream.LogStreamName + ".log";
             if (!Directory.GetParent(output).Exists)
                 Directory.CreateDirectory(Directory.GetParent(output).FullName);
+
+            Console.WriteLine("Downloading log into " + output);
+
+            bool lsMessage = !liveStream;
 
             using (StreamWriter sw = new StreamWriter(output))
             {
@@ -125,7 +130,17 @@ namespace CloudWatchLogDownloader
                         sw.WriteLine(ev.Message);
 
                     sw.Flush();
-                } while (leResponse.NextForwardToken != null && leResponse.Events.Any());
+
+                    if (!leResponse.Events.Any() && !lsMessage)
+                    {
+                        lsMessage = true;
+                        ConsoleColor oldcolor = Console.ForegroundColor;
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("Now streaming live from lg: " + logGroup.LogGroupName + " ls: " + logStream.LogStreamName + " into " + output);
+                        Console.ForegroundColor = oldcolor;
+                        Console.WriteLine("{0}{0}Press CTRL+C to stop...", Environment.NewLine);
+                    }
+                } while ((leResponse.NextForwardToken != null && leResponse.Events.Any()) || liveStream);
             }
         }
 
