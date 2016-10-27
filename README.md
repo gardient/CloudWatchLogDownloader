@@ -19,5 +19,6 @@ If you're still reading this means you want to use this abomination... Good.
 |-g|--logGroup|The log group you want to select the stream from, can end with '*' in which case the option to choose from all groups starting with this will be given|
 |-s|--logStream|The log stream you want to save, can end with '*' in which case the option to choose from all groups starting with this will be given|
 |-o|--outputFile|The file to output the logs to.|
+|-l|--liveStream|After reaching the newest log keep polling until ctrl+c is pressed|
 
 If any of the above are not specified the program will prompt for them
