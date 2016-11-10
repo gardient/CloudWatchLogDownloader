@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using Amazon;
 
 namespace CloudWatchLogDownloader
 {
@@ -102,10 +101,19 @@ namespace CloudWatchLogDownloader
 
         private static void WriteLogToFile(LogGroup logGroup, LogStream logStream, bool liveStream, string outputFilePath = null)
         {
-            Console.WriteLine("Choose Output file [logs/" + logStream.LogStreamName + ".log]: ");
-            var output = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(output))
-                output = "logs/" + logStream.LogStreamName + ".log";
+            string output = null;
+            if (string.IsNullOrWhiteSpace(outputFilePath))
+            {
+                Console.WriteLine("Choose Output file [logs/" + logStream.LogStreamName + ".log]: ");
+                output = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(output))
+                    output = "logs/" + logStream.LogStreamName + ".log";
+            }
+            else
+            {
+                output = outputFilePath;
+            }
+
             if (!Directory.GetParent(output).Exists)
                 Directory.CreateDirectory(Directory.GetParent(output).FullName);
 
