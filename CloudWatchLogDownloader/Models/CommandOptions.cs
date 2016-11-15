@@ -20,6 +20,9 @@ namespace CloudWatchLogDownloader.Models
         [Option('l', "liveStream", HelpText="Keep pulling logs until Ctrl+C is applied")]
         public bool LiveStream { get; set; }
 
+        [Option('d',"debug", HelpText = "print additional logs to console")]
+        public bool Debug { get; set; }
+
         [ParserState]
         public IParserState ParserState { get; set; }
 

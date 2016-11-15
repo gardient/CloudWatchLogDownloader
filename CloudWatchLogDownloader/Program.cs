@@ -16,6 +16,8 @@ namespace CloudWatchLogDownloader
             var opt = new CommandOptions();
             if (CommandLine.Parser.Default.ParseArguments(args, opt))
             {
+                DebugLogger.Debug = opt.Debug;
+
                 client = new AmazonCloudWatchLogsClient();
                 var logGroup = GetLogGroup(opt.LogGroup);
                 var logStream = GetLogStream(logGroup, opt.LogStream);
@@ -29,8 +31,10 @@ namespace CloudWatchLogDownloader
             DescribeLogGroupsResponse lgResponse = null;
             do
             {
+                DebugLogger.WriteLine("Getting logGroups...");
                 lgResponse = client.DescribeLogGroups(new DescribeLogGroupsRequest { NextToken = (lgResponse != null ? lgResponse.NextToken : null) });
                 allGroups.AddRange(lgResponse.LogGroups);
+                DebugLogger.WriteLine("Got logGroups, have {0}, {1} more pages", allGroups.Count, (!string.IsNullOrWhiteSpace(lgResponse.NextToken) ? "still" : "no"));
             } while (!string.IsNullOrWhiteSpace(lgResponse.NextToken));
 
             if (string.IsNullOrWhiteSpace(logGroup) || logGroup[logGroup.Length - 1] == '*')
@@ -64,12 +68,14 @@ namespace CloudWatchLogDownloader
             DescribeLogStreamsResponse lsResponse = null;
             do
             {
+                DebugLogger.WriteLine("Getting logStreams...");
                 lsResponse = client.DescribeLogStreams(new DescribeLogStreamsRequest
                 {
                     NextToken = (lsResponse != null ? lsResponse.NextToken : null),
                     LogGroupName = logGroup.LogGroupName
                 });
                 allStreams.AddRange(lsResponse.LogStreams);
+                DebugLogger.WriteLine("Got logStreams, have {0}, {1} more pages", allStreams.Count, (!string.IsNullOrWhiteSpace(lsResponse.NextToken) ? "still" : "no"));
             } while (!string.IsNullOrWhiteSpace(lsResponse.NextToken));
 
             if (string.IsNullOrWhiteSpace(logStream) || logStream[logStream.Length - 1] == '*')
@@ -126,6 +132,7 @@ namespace CloudWatchLogDownloader
                 GetLogEventsResponse leResponse = null;
                 do
                 {
+                    DebugLogger.WriteLine("Getting events...");
                     leResponse = client.GetLogEvents(new GetLogEventsRequest
                     {
                         LogGroupName = logGroup.LogGroupName,
@@ -133,13 +140,14 @@ namespace CloudWatchLogDownloader
                         StartFromHead = true,
                         NextToken = (leResponse != null ? leResponse.NextForwardToken : null)
                     });
+                    DebugLogger.WriteLine("Got {0} events", leResponse.Events.Count);
 
                     foreach (var ev in leResponse.Events)
                         sw.WriteLine(ev.Message);
 
                     sw.Flush();
 
-                    if (!leResponse.Events.Any() && !lsMessage)
+                    if (!leResponse.Events.Any() && !lsMessage && liveStream)
                     {
                         lsMessage = true;
                         ConsoleColor oldcolor = Console.ForegroundColor;
