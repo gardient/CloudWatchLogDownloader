@@ -1,6 +1,8 @@
 # CloudWatchLogDownloader
 Download full logs from AWS CloudWatch
 
+[![Build Status](https://travis-ci.org/gardient/CloudWatchLogDownloader.svg)](https://travis-ci.org/gardient/CloudWatchLogDownloader)
+
 ## Who is it for?
 For idiots like me who just want a text dump of the cloud watch log without going through S3
 
